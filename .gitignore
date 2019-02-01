@@ -1,2 +1,5 @@
 imgs/*.psd
 reference
+*.rbxl
+out
+.vscode
