@@ -104,12 +104,8 @@ function Mouse:CastWithWhitelist(whitelistDescendantsTable, ignoreWater)
 end
 
 
-function Mouse:Start()
-	
-end
-
-
-function Mouse:Init()
+function Mouse.new()
+	local self = setmetatable({}, Mouse)
 	
 	self.LeftDown   = Aero.Event.new()
 	self.LeftUp     = Aero.Event.new()
@@ -150,7 +146,8 @@ function Mouse:Init()
 			end
 		end
 	end)
-	
+
+	return self
 end
 
 

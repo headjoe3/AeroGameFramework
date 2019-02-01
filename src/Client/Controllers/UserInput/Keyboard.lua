@@ -16,6 +16,7 @@
 
 
 local Keyboard = {}
+Keyboard.__index = Keyboard
 
 local userInput = game:GetService("UserInputService")
 
@@ -46,14 +47,9 @@ function Keyboard:AreAnyDown(...)
 	return false
 end
 
+function Keyboard.new()
+	local self = setmetatable({}, Keyboard)
 
-function Keyboard:Start()
-	
-end
-
-
-function Keyboard:Init()
-	
 	self.KeyDown = Aero.Event.new()
 	self.KeyUp = Aero.Event.new()
 	
@@ -69,8 +65,8 @@ function Keyboard:Init()
 			self.KeyUp:Fire(input.KeyCode)
 		end
 	end)
-	
-end
 
+	return self
+end
 
 return Keyboard

@@ -31,15 +31,9 @@ end
 
 function UserInput:Init()
 	for _,obj in pairs(script:GetChildren()) do
-		if (obj:IsA("ModuleScript")) then
+		if (obj ~= script and obj:IsA("ModuleScript")) then
 			local module = require(obj)
-			if (type(module.Init) == "function") then
-				module:Init()
-			end
-			if (type(module.Start) == "function") then
-				coroutine.wrap(module.Start)(module)
-			end
-			modules[obj.Name] = module
+			modules[obj.Name] = module.new()
 		end
 	end
 end

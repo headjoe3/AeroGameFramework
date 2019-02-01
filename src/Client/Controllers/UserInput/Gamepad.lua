@@ -185,15 +185,4 @@ function Gamepad:ApplyDeadzone(value, deadzoneThreshold)
 	end
 end
 
-
-function Gamepad:Start()
-	
-end
-
-
-function Gamepad:Init()
-	
-end
-
-
 return Gamepad
