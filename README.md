@@ -1,4 +1,6 @@
-![Logo](/imgs/logo_256.png)
+<div align="center"><img width=25% src="/imgs/logo_256.png"></div>
+<h1 align="center">aero-ts</h1>
+<br>
 
 # AeroGameFramework
 A powerful game framework for the Roblox platform.
