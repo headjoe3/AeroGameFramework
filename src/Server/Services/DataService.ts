@@ -1,4 +1,4 @@
-import * as Aero from "Shared/Internal/Aero"
+import * as Aero from "Shared/Modules/Aero"
 import Cache = require("Server/Modules/DataStoreCache")
 
 // Data Service
@@ -158,7 +158,13 @@ export class DataService extends Aero.Service {
         globalCache.FlushAll()
     }
     FlushAllConcurrent() {
-        //const thread = coroutine.running()
+        // If closing, schedule synchronous flush all instead
+        if (this.GameClosing) {
+            Cache.GameCloseManager.Schedule(() => this.FlushAll())
+            return
+        }
+
+        const thread = coroutine.running()
         let numCaches = 0
         let numFlushed = 0
         playerCaches.forEach(() => {
@@ -172,25 +178,24 @@ export class DataService extends Aero.Service {
         const IncFlushed = () => {
             numFlushed++
             if (numFlushed === numCaches) {
-                //assert(coroutine.resume(thread))
+                assert(coroutine.resume(thread))
             }
         }
         playerCaches.forEach(cache => {
-            print("Saving player cache", cache)
-            //spawn(() => {
+            spawn(() => {
                 cache.FlushAllConcurrent()
                 IncFlushed()
-            //})
+            })
         })
         customCaches.forEach(cache => {
             print("Saving custom cache", cache)
-            //spawn(() => {
+            spawn(() => {
                 cache.FlushAll()
                 IncFlushed()
-            //})
+            })
         })
         globalCache.FlushAll()
-        //coroutine.yield()
+        coroutine.yield()
     }
     BindToClose(func: () => void) {
         boundToCloseFuncs.push(func)
@@ -206,22 +211,11 @@ export class DataService extends Aero.Service {
         this.GameClosing = false
         
         const FireBoundToCloseCallbacks = () => {
-            //let thread = coroutine.running()
-            let numBinded = boundToCloseFuncs.length
-            if ((numBinded === 0)) { return }
-            let numCompleted = 0
-            let maxWait = 20
-            let start = tick()
             boundToCloseFuncs.forEach(func => {
-                //coroutine.wrap(() => {
+                Cache.GameCloseManager.Schedule(() => {
                     pcall(func)
-                    numCompleted = (numCompleted + 1)
-                    if ((numCompleted === numBinded)) {
-                        //assert(coroutine.resume(thread))
-                    }
-                //})()
+                })
             })
-            //coroutine.yield()
         }
         
         // Flush cache:
@@ -238,11 +232,18 @@ export class DataService extends Aero.Service {
         
         const GameClosing = () => {
             this.GameClosing = true
-            print("Stalling game close", 1)
+            Cache.GameCloseManager.HandleScheduledRequests()
+
             FireBoundToCloseCallbacks()
-            print("Stalling game close", 2)
-            this.FlushAllConcurrent()
-            print("Stalling game close", 3)
+            playerCaches.forEach(cache => {
+                Cache.GameCloseManager.Schedule(() => cache.FlushAll())
+            })
+            customCaches.forEach(cache => {
+                Cache.GameCloseManager.Schedule(() => cache.FlushAll())
+            })
+            Cache.GameCloseManager.Schedule(() => globalCache.FlushAll())
+
+            Cache.GameCloseManager.CompleteRequestsUntilFinished()
         }
         
         game.GetService("Players").PlayerRemoving.Connect(PlayerRemoving)

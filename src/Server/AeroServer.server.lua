@@ -13,15 +13,13 @@ local AeroServer = {
 local mt = {__index = AeroServer}
 
 local servicesFolder = game:GetService("ServerScriptService").Aero.Services
-local modulesFolder = game:GetService("ServerScriptService").Aero.Modules
-local sharedFolder = game:GetService("ReplicatedStorage").Aero.Modules
-local internalFolder = game:GetService("ReplicatedStorage").Aero.Internal
+local sharedModulesFolder = game:GetService("ReplicatedStorage").Aero.Modules
 
 local remoteServices = Instance.new("Folder")
 remoteServices.Name = "AeroRemoteServices"
 
-local Aero = require(internalFolder.Aero)
-local FastSpawn = require(internalFolder.FastSpawn)
+local Aero = require(sharedModulesFolder.Aero)
+local FastSpawn = require(sharedModulesFolder.FastSpawn)
 
 -- Runtime override of Aero classes
 function ExtendAeroServer(class)
@@ -144,21 +142,6 @@ function AeroServer:WrapModule(tbl)
 end
 
 
--- Setup table to load modules on demand:
-function LazyLoadSetup(tbl, folder)
-	setmetatable(tbl, {
-		__index = function(t, i)
-			local obj = require(folder[i])
-			if (type(obj) == "table") then
-				AeroServer:WrapModule(obj)
-			end
-			rawset(t, i, obj)
-			return obj
-		end;
-	})
-end
-
-
 -- Load service from module:
 function LoadService(module)
 	
@@ -241,10 +224,6 @@ end
 
 
 function Init()
-	
-	-- Lazy-load server and shared modules:
-	LazyLoadSetup(AeroServer.Modules, modulesFolder)
-	LazyLoadSetup(AeroServer.Shared, sharedFolder)
 	
 	-- Load service modules:
 	for _,module in pairs(servicesFolder:GetChildren()) do

@@ -28,9 +28,10 @@ local Cache = {}
 Cache.__index = Cache
 
 local SafeDataStore = require(script:WaitForChild("SafeDataStore"))
-local internalFolder = game:GetService("ReplicatedStorage"):WaitForChild("Aero"):WaitForChild("Internal")
-local Aero = require(internalFolder:WaitForChild("Aero"))
+local modulesFolder = game:GetService("ReplicatedStorage"):WaitForChild("Aero"):WaitForChild("Modules")
+local Aero = require(modulesFolder:WaitForChild("Aero"))
 
+Cache.GameCloseManager = require(script:WaitForChild("GameCloseManager"))
 
 function Cache.new(name, scope)
 	

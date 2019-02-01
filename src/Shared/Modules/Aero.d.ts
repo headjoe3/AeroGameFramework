@@ -72,4 +72,28 @@ declare namespace Aero {
         DisconnectAll(): void
         Destroy(): void
     }
+    class ListenerList {
+        constructor()
+    
+        Connect<T extends Aero.Event<U> | RBXScriptSignal<U>, U extends (...args: any[]) => void>(event: T, func: U): T
+        BindToRenderStep(name: string, priority: number, func: (deltaTime: number) => void): void
+        BindAction(
+            actionName: string,
+            funcToBind: (actionName: string, inputState: Enum.UserInputState, inputObj: InputObject) => void,
+            createTouchBtn: boolean,
+            ...inputTypes: (Enum.KeyCode | Enum.PlayerActions | Enum.UserInputType)[]
+        ): void
+        BindActionAtPriority(
+            actionName: string,
+            funcToBind: (actionName: string, inputState: Enum.UserInputState, inputObj: InputObject) => void,
+            createTouchBtn: boolean,
+            priorityLevel: number,
+            ...inputTypes: (Enum.KeyCode | Enum.PlayerActions | Enum.UserInputType)[]
+        ): void
+    
+        DisconnectAll(): void
+        DisconnectEvents(): void
+        DisconnectRenderSteps(): void
+        DisconnectActions(): void
+    }
 } 

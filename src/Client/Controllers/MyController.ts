@@ -1,4 +1,4 @@
-import Aero = require("Shared/Internal/Aero");
+import Aero = require("Shared/Modules/Aero");
 
 export class MyController extends Aero.Controller {
     Start() {

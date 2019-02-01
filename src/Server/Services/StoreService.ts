@@ -1,4 +1,4 @@
-import * as Aero from "Shared/Internal/Aero"
+import * as Aero from "Shared/Modules/Aero"
 
 // Store Service
 // Original by Crazyman32, ported by DataBrain

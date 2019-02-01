@@ -23,8 +23,8 @@ local dataStoreService = game:GetService("DataStoreService")
 if (game.PlaceId == 0) then
 	dataStoreService = require(script.Parent:WaitForChild("MockDataStoreService"))
 end
-local internalFolder = game:GetService("ReplicatedStorage"):WaitForChild("Aero"):WaitForChild("Internal")
-local Aero = require(internalFolder:WaitForChild("Aero"))
+local modulesFolder = game:GetService("ReplicatedStorage"):WaitForChild("Aero"):WaitForChild("Modules")
+local Aero = require(modulesFolder:WaitForChild("Aero"))
 
 -- Map DataStoreService methods to associated RequestTypes:
 local requestTypes = {

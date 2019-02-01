@@ -1,4 +1,4 @@
-import Aero = require("Shared/Internal/Aero");
+import Aero = require("Shared/Modules/Aero");
 
 export = Cache
 declare class Cache {
@@ -19,5 +19,12 @@ declare class Cache {
 	FlushAll(): void
     FlushAllConcurrent(): void
     
-	Destroy(): void
+    Destroy(): void
+    
+    static GameCloseManager: {
+        Schedule: <T extends (...args: any[]) => void>(func: T, ...args: FunctionArguments<T>) => void
+        IsClosing: () => boolean
+        CompleteRequestsUntilFinished: () => void
+        HandleScheduledRequests: () => void
+    }
 }

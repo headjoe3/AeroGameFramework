@@ -16,13 +16,11 @@ local AeroClient = {
 local mt = {__index = AeroClient}
 
 local controllersFolder = script.Parent:WaitForChild("Controllers")
-local modulesFolder = script.Parent:WaitForChild("Modules")
-local sharedFolder = game:GetService("ReplicatedStorage"):WaitForChild("Aero"):WaitForChild("Modules")
-local internalFolder = game:GetService("ReplicatedStorage").Aero:WaitForChild("Internal")
+local sharedModulesFolder = game:GetService("ReplicatedStorage"):WaitForChild("Aero"):WaitForChild("Modules")
 local TSInternalFolder = game:GetService("ReplicatedStorage"):WaitForChild("RobloxTS"):WaitForChild("Include")
 
-local Aero = require(internalFolder:WaitForChild("Aero"))
-local FastSpawn = require(internalFolder:WaitForChild("FastSpawn"))
+local Aero = require(sharedModulesFolder:WaitForChild("Aero"))
+local FastSpawn = require(sharedModulesFolder:WaitForChild("FastSpawn"))
 local Promise = require(TSInternalFolder:WaitForChild("Promise"))
 
 -- Runtime override of Aero classes
@@ -160,21 +158,6 @@ function LoadClientInterfaces()
 end
 
 
--- Setup table to load modules on demand:
-function LazyLoadSetup(tbl, folder)
-	setmetatable(tbl, {
-		__index = function(t, i)
-			local obj = require(folder[i])
-			if (type(obj) == "table") then
-				AeroClient:WrapModule(obj)
-			end
-			rawset(t, i, obj)
-			return obj
-		end;
-	})
-end
-
-
 function LoadController(module)
 	local _exports = require(module)
 
@@ -206,10 +189,6 @@ end
 
 
 function Init()
-	-- Lazy load modules:
-	LazyLoadSetup(AeroClient.Modules, modulesFolder)
-	LazyLoadSetup(AeroClient.Shared, sharedFolder)
-	
 	-- Load server-side services as client interfaces:
 	LoadClientInterfaces()
 	

@@ -1,4 +1,4 @@
-import * as Aero from "Shared/Internal/Aero"
+import * as Aero from "Shared/Modules/Aero"
 
 // Server service
 export class MyService extends Aero.Service {
