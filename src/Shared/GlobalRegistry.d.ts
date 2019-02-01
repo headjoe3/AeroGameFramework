@@ -1,6 +1,6 @@
 import {MyService, MyServiceClient} from "../Server/Services/MyService"
-import { StoreService } from "Server/Services/StoreService";
-import { DataService } from "Server/Services/DataService";
+import { StoreService, StoreServiceClient } from "Server/Services/StoreService";
+import { DataService, DataServiceClient } from "Server/Services/DataService";
 import { MyController } from "Client/Controllers/MyController";
 import UserInput = require("Client/Controllers/UserInput");
 
@@ -21,6 +21,9 @@ declare global {
     }
 
     interface GlobalAeroClientInterfaces extends Record<string, Aero.ClientInterface<Aero.Service>>  {
+        StoreService: StoreServiceClient
+        DataService: DataServiceClient
+
         // Add your client interfaces here
         MyService: MyServiceClient
     }
