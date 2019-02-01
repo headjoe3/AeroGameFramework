@@ -1,0 +1,27 @@
+{
+  "name": "aero-ts",
+  "version": "1.0.0",
+  "description": "![Logo](/imgs/logo_256.png)",
+  "main": "index.js",
+  "directories": {
+    "doc": "doc"
+  },
+  "dependencies": {
+    "rbx-types": "^1.0.107"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sleitnick/AeroGameFramework.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Sleitnick/AeroGameFramework/issues"
+  },
+  "homepage": "https://github.com/Sleitnick/AeroGameFramework#readme"
+}
