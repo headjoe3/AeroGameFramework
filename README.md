@@ -1,332 +1,172 @@
 <div align="center"><img width=25% src="/imgs/logo_256.png"></div>
 <h1 align="center">aero-ts</h1>
 <br>
+<div align="center">A typescript port to Crazyman32's AeroGameFramework</div>
 
-# AeroGameFramework
-A powerful game framework for the Roblox platform.
+# Overview
+AeroGameFramework is a framework made by Crazyman32 that simplifies server/client script organization and communication interfaces between them.
+This is a [Roblox-TypeScript](https://roblox-ts.github.io/) port to that framework
 
-AeroGameFramework is a Roblox game framework that makes development easy and fun. The framework is designed to simplify the communication between modules and seamlessly bridge the gap between the server and client. Never again will you have to touch RemoteFunctions or RemoteEvents.
+# Warning
+Aero-ts is still in its early stages, and may be prone to bugs. Because there is currently no universal installer, even if I fix bugs with the framework, you will have to manually update the files from this repository. The bright side is that you are free to change and configure the internals however you wish without your changes being overridden. Because this is a holistic framework and is meant to simplify the organization of your game as a whole, feel free to re-organize it how you wish.
 
-# Video Tutorial
-Learn how to use the framework in the video tutorial series:
-https://www.youtube.com/watch?v=8ta0cHX1ceE&index=1&list=PLk3R4TM3pnqv7doCTUHtn-wkydaA08npc
+# Installation
+Currently, aero-ts has no standard installer, as it relies on the placement of files and Rojo partitions in a Roblox-TS project. For this reason, you will have to manually organize the files you want to include.
 
-# Install & Update
-Run the installer from the [AeroGameFramework plugin](https://www.roblox.com/library/1882232354/AeroGameFramework-Plugin). The installer will allow you to install and update the framework.
+**You can download this repository and start building your project** if you already have rojo and roblox-ts installed.
 
-# Structure
-AeroGameFramework is structured into three categories: Server, Client, and Shared.
+OR
 
-- `[Server] ServerStorage.Aero.Services`
-- `[Server] ServerStorage.Aero.Modules`
-- `[Client] StarterPlayerScripts.Aero.Controllers`
-- `[Client] StarterPlayerScripts.Aero.Modules`
-- `[Shared] ReplicatedStorage.Aero.Shared`
+If you have an existing project, you can either port your project to this project, or manually place the core modules from this repository into it.
 
-## Server
-`ServerStorage.Aero.Services` & `ServerStorage.Aero.Modules`
+Luckily, a manual installation is not too difficult, and is highly customizable. Here are some steps to integrating aero-ts into your game:
 
-#### Services
-Services are modules that are initialized and run at runtime. All services are exposed to each other. Services can also expose functions and events to the client.
+1. Make sure you have [`Roblox-TS`](https://github.com/roblox-ts/roblox-ts) and `rbx-types` installed and updated to their latest versions
+2. Configure your sync plugin to output to the following locations:
+- Server code: `ServerScriptService.Aero`
+- Client code: `StarterPlayer.StarterPlayerScripts.Aero`
+- Shared code: `ReplicatedStorage.Aero`
 
-#### Modules
-Modules are lazy-loaded modules that services can access as needed.
+You can view the `rojo.json` file in this repository for reference
 
-## Client
-`StarterPlayerScripts.Aero.Controllers` & `StarterPlayerScripts.Aero.Modules`
+3. Copy the core scripts from this repository, and put them in the appropriate folders
+- Client entry point: `Client/AeroClient.client.lua` file, `Client/Controllers` folder (contents are not essential)
+- Server entry point: `Server/AeroServer.server.lua` file, `Client/Server` folder (contents are not essential)
+- Shared core module: `Shared/Modules/Aero` folder, `Shared/Modules/Aero.d.ts` file, `Shared/Modules/FastSpawn.lua` file
+- Anywhere: `Shared/GlobalRegistry.d.ts` file
 
-#### Controllers
-Client controllers work similarly to server-side services, whereas all the modules are initialized and started at runtime and all modules are exposed to each other. Services that expose client-side methods and events can be accessed with these controller modules.
+4. If you chose not to include any services/contollers, check the `GlobalRegistry.d.ts` file and remove any lines that reference the modules you left out.
 
-#### Modules
-Client-side modules have the exact functionality as server-side modules, except that they are run on the client.
+# Getting started
 
-## Shared
-`ReplicatedStorage.Aero.Shared`
+First of all, read [Crazyman32's tutorial](https://github.com/Sleitnick/AeroGameFramework) or watch his [video tutorial series](https://www.youtube.com/watch?v=8ta0cHX1ceE&index=1&list=PLk3R4TM3pnqv7doCTUHtn-wkydaA08npc) in order to gain an understanding of how the AeroGameFramework is structured.
 
-Shared modules are modules that can be used by both the client and the server.
+Secondly, make sure you are familiar with Roblox-TS and Rojo, and the process of compiling your TypeScript codebase into a roblox game.
 
-# API
-Documentation of how to use server services and client modules.
+# Differences from the original AeroGameFramework
 
-## API - Server Service
-```lua
-local MyService = {Client = {}}
+While the concept is the same, aero-ts has some major changes from the original framework. Here are a few major differences:
+### Services and Controllers exported are classes
+```ts
+import * as Aero from "Shared/Modules/Aero"
 
-function MyService:Start()
-  -- Called when all services have been initialized
-end
-
-function MyService:Init()
-  -- Called when the module is first loaded.
-  -- Safe to reference 'self.Services/Modules/Shared'
-  -- NOT safe to USE/INVOKE other services yet (use them in/after Start method)
-end
-
-return MyService
+// Server service
+export class MyService extends Aero.Service {
+    Init() {
+    }
+    Start() {
+    }
+    DoSomething() {
+    }
+}
 ```
-#### Injected Properties:
-- `service.Services` Table of all other services, referenced by the name of the ModuleScript
-- `service.Modules` Table of all objects, referenced by the name of the ModuleScript
-- `service.Shared` Table of all shared modules, referenced by the name of the ModuleScript
-- `service.Client.Server` References back to the service, so client-facing methods can invoke server-facing methods
-#### Injected Methods:
-- `Void        service:RegisterEvent(String eventName)`
-- `Void        service:RegisterClientEvent(String eventName)`
-- `Void        service:FireEvent(String eventName, ...)`
-- `Void        service:FireClientEvent(String eventName, Instance player, ...)`
-- `Void        service:FireAllClientsEvent(String eventName, ...)`
-- `Connection  service:ConnectEvent(String eventName, Function handler)`
-- `Connection  service:ConnectClientEvent(String eventName, Function handler)`
+Even though they are loaded and instanced in the same way as regular AGF, Services and Controllers are now formatted as classes and can be exported alongside other things in each module. This allows type information to be retained when accessing another service, as well as making variables and methods public or private.
 
-## API - Client Controller
-```lua
-local MyController = {}
+### Client interfaces are separate exported classes
+Client interfaces are accessed in the same way through controllers (`this.Services.MyService`) — however, they are now defined as a separate export, are not required on all services
 
-function MyController:Start()
-  -- Called when all controllers have been initialized
-end
+```ts
+import * as Aero from "Shared/Modules/Aero"
 
-function MyController:Init()
-  -- Called when the controller is first loaded.
-  -- Safe to reference 'self.Controllers/Modules/Objects/Shared'
-  -- NOT safe to USE/INVOKE other controllers yet (use them in/after Start method)
-end
+// Server service
+export class MyService extends Aero.Service {
+    Init() {
+    }
+    Start() {
+    }
+    DoSomething() {
+    }
+}
 
-return MyController
-```
-#### Injected Properties:
-- `controller.Controllers` Table of all other controllers, referenced by the name of the ModuleScript
-- `controller.Modules` Table of all modules, referenced by the name of the ModuleScript
-- `controller.Shared` Table of all shared modules, referenced by the name of the ModuleScript
-- `controller.Services` Table of all server-side services, referenced by the name of the ModuleScript
-- `controller.Player` Reference to the LocalPlayer (i.e. `game.Players.LocalPlayer`)
-
-#### Injected Methods:
-- `Void        controller:RegisterEvent(String eventName)`
-- `Void        controller:FireEvent(String eventName, ...)`
-- `Connection  controller:ConnectEvent(String eventName, Function handler)`
-
-# Basic Examples - Server
-
-## Server Service
-Here is a basic service:
-
-```lua
-local TestService = {}
-
-function TestService:Add(a, b)
-  return a + b
-end
-
-function TestService:Start()
-  -- Ran after all services have been initialized
-end
-
-function TestService:Init()
-  -- Do anything to set up the service.
-  -- It is NOT safe to run code from other services, but they CAN be referenced.
-end
-
-return TestService
+// Client-interfacing methods
+export class MyServiceClient extends Aero.ClientInterface<MyService> {
+    DoSomethingAsync = Aero.AsyncVoid(() => {
+        this.Server.DoSomething()
+    })
+}
 ```
 
-## Service-to-service Communication
-Here is an example of a service invoking the method of another service. Note that `self.Services` exposes all the services:
+### Client-interfacing methods now fall into three categories: Sync, Async, and AsyncVoid
+When I began porting the framework, I noticed that the DataService and StoreService implementations did not have any type checks whatsoever for player-interfacing functions. While I don't know how exactly this could be exploited, client-interfacing methods must now be wrapped in `Aero.Sync`, `Aero.Async`, or `Aero.AsyncVoid` function wrappers. Using the magic of TypeScript, these functions *force you* to not trust the client's input!
+![You can't fool the compiler!](https://i.imgur.com/ilEXSp0.png)
+aero-ts forces the first parameter to be typed as "Player", and any other parameters to be typed as "unknown", because after all—You don't know what the client will send you.
+You can still define the *expected* parameter types in your client-interfacing method using the type argument of Sync/Async/AsyncVoid
+![Much better!](https://i.imgur.com/Db82sma.png)
 
-```lua
-local AnotherService = {}
+"Sync" will automatically connect a RemoteFunction for your client interface, while "Async" and "AsyncVoid" will connect RemoteEvents (yes, I know I've minimized the use of Register/Connect/FireClientEvent, but this is far simpler and more convenient anyways.)
 
-local testService
+"Async" will return a roblox-TS internal [promise](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise) for the return parameter of your client-interfacing method. This will be a two-way connection, even if it uses a RemoteEvent.
 
-function AnotherService:Start()
-  -- Invoke the TestService:
-  local sum = testService:Add(5, 3)
-  print("5 + 3 = ", sum)
-end
+"AsyncVoid" will only fire from the client to the server, and never expect a return parameter.
 
-function AnotherService:Init()
-  -- Reference the TestService:
-  testService = self.Services.TestService
-end
+Because the client interface's types is **shared** between the server and the client, you only have to define the interface parameters and values in *one place*! 
+```ts
+import Aero = require("Shared/Modules/Aero");
 
-return AnotherService
+export class MyController extends Aero.Controller {
+    Start() {
+        this.Services.MyService.Greet("Joe")
+            .then(serverMessage => print("Got message back from the server: " + serverMessage))
+    }
+}
+```
+Both the client Controller and the server Service know that the client interface method "Greet" expects a string and returns a string
+![Intellisense](https://i.imgur.com/z3Q7BO1.png)
+
+### Services, Controllers, and ClientInterfaces must be registered in `GlobalRegistry.d.ts`
+In order to expose the "Services" and "Controllers" properties of Services and Controllers, the types of each service and controller must first be globally exposed. This is achieved through a file in the `Shared` folder called `GlobalRegistry.d.ts`. This is an ambient TypeScript file (meaning it will not actually be compiled), which allows everything to be typesafe.
+
+By default, some services and controllers ported from the original AeroGameFramework are already included in the global registry file:
+```ts
+import {MyService, MyServiceClient} from "../Server/Services/MyService"
+import { StoreService } from "Server/Services/StoreService";
+import { DataService } from "Server/Services/DataService";
+import { MyController } from "Client/Controllers/MyController";
+import UserInput = require("Client/Controllers/UserInput");
+
+import Aero = require("Shared/Modules/Aero");
+
+// In order to expose your service's types, you must add it to the global registry
+// NOTE: The key must match the module's name, and the module must be placed directly in the corresponding Services/Controllers folder!
+declare global {
+
+    // Server
+
+    interface GlobalAeroServices extends Record<string, Aero.Service> {
+        StoreService: StoreService
+        DataService: DataService
+
+        // Add your services here
+        MyService: MyService
+    }
+
+    interface GlobalAeroClientInterfaces extends Record<string, Aero.ClientInterface<Aero.Service>>  {
+        // Add your client interfaces here
+        MyService: MyServiceClient
+    }
+
+    // Client
+
+    interface GlobalAeroControllers extends Record<string, Aero.Controller> {
+        UserInput: UserInput
+
+        // Add your controllers here
+        MyController: MyController
+    }
+}
 ```
 
-## Service Events
-Here is an example of a service registering, firing, and connecting to an event:
+When adding a Service or Controller, make sure to add it to the global registry as well. **The registered name of your service or controller (on the left hand side) MUST match the name of the file that it comes from, regardless of what its exported service, client interface, or controller is called**
 
-```lua
-local MyService = {}
+Once you add a service/controller to the global registry, you may now access it within another service or controller using `this.Services`, and `this.Controllers`
 
-function MyService:Start()
+### Modules are NOT lazy-loaded, and act like regular modules without any injection
+The only objects that can access other Services or Controllers are Services and Controllers. This was done intentionally, as it seems to me like bad practice to expose them otherwise. The "Modules" folder no longer has any special meaning (except in Shared.Modules, which is where the Aero core is located), and should be used for utility classes, functions, and data that should accomplish its task without invoking other services or having circular dependencies.
 
-  -- Connect to the event:
-  self:ConnectEvent("Hello", function(msg)
-    print(msg)
-  end)
+If absolutely need to access the Services or Controllers, you can use `_G.AeroClient` and `_G.AeroServer` to find them.
 
-end
-
-function MyService:Init()
-
-  -- Register the event:
-  self:RegisterEvent("Hello")
-
-  -- Fire the event after 5 seconds:
-  delay(5, function()
-    self:FireEvent("Hello", "How are you?")
-  end)
-
-end
-
-return MyService
-```
-
-## Service exposing method and event to client
-Here's an example where a service exposes a method and event to the client:
-```lua
-local MyService = {Client={}} -- Notice the 'Client={}'
-
--- Client-exposed method:
-function MyService.Client:Hello(player, ...)
-  print(player.Name .. " says hello")
-  return "Hello to you too!"
-end
-
-function MyService:Start()
-
-  -- Fire client event after 5 seconds:
-  delay(5, function()
-    self:FireAllClientsEvent("HelloClient", "Hello!")
-  end)
-
-  -- Fire client event to individual player:
-  delay(5, function()
-    self:FireClientEvent("HelloClient", game.Players.SomePlayer, "Hi!")
-  end)
-
-end
-
-function MyService:Init()
-
-  -- Expose client event:
-  self:RegisterClientEvent("HelloClient")
-
-  -- Connecting to client event:
-  self:ConnectClientEvent("HelloClient", function(player, ...)
-    -- Foo
-  end)
-
-end
-
-return MyService
-```
-
-## Service client method invoking server method
-Sometimes your client-facing methods need to invoke your server-facing methods. Reference the `self.Server` field to do this:
-```lua
-local MyService = {Client = {}}
-
-function MyService:DoSomethingServerSide()
-  return math.random()
-end
-
--- Client-facing method:
-function MyService.Client:GetRandom()
-  -- Invoke server-facing method:
-  local number = self.Server:DoSomethingServerSide()
-  return number
-end
-
-function MyService:Start() end
-function MyService:Init() end
-
-return MyService
-```
-
-# Basic Examples - Client
-
-## Client Controller
-Here is a basic client controller that also connects to a server-side service:
-
-```lua
-local SomeController = {}
-
-function SomeController:Test(x)
-  print("Test!")
-  return x * 2
-end
-
-function SomeController:Start()
-
-  -- Connect to server event:
-  self.Services.MyService.HelloClient:Connect(function(msg)
-    print(msg)
-    -- Fire event back to server:
-    self.Services.MyService.HelloClient:Fire("Hello to you too!")
-  end)
-  
-  -- Fire server method:
-  local msg = self.Services.MyService:Hello("Hi there")
-  print(msg)
-  
-end
-
-function SomeController:Init()
-  -- Run code here to set up the controller.
-  -- Similar to services, it is NOT safe to invoke other controllers in this method, but you CAN reference them.
-end
-
-return SomeController
-```
-
-## Client controller invoking another controller
-Here is an example of a client controller invoking another client controller:
-
-```lua
-local MyController = {}
-
-local someController
-
-function MyController:Start()
-  -- Invoke the other controller:
-  local result = someController:Test(32)
-  print(result)
-end
-
-function MyController:Init()
-  -- Reference the other controller:
-  someController = self.Controllers.SomeController
-end
-
-return MyController
-```
-
-# Global
-In certain circumstances, you may want to access the framework from code executing independent from the framework. In order to do this, both the client and the server root tables have been exposed on the global scope. Because they are not exposed until fully loaded, you will have to wait for them to exist by using a `while` or `repeat` loop, as shown in the examples below.
-
-### Server Global Example
-```lua
-while (not _G.AeroServer) do wait() end
-local aeroServer = _G.AeroServer
-
-aeroServer.Services.SomeService:DoSomething()
-```
-
-### Client Global Example
-```lua
-while (not _G.Aero) do wait() end
-local aero = _G.Aero
-
-aero.Controllers.Fade:In()
-aero.Services.TestService:Hello()
-```
-
-# Internal
-AeroGameFramework is run by two scripts, `AeroServer` and `AeroClient`. The `AeroServer` script is located under `ServerScriptService.Aero`, and the `AeroClient` script is located under `StarterPlayerScripts.Aero`. These two scripts take care of executing the modules within the game framework. For the sake of stability, it is recommended that these scripts remain unaltered.
-
-When looking at in-game statistics, such as memory usage, it is important to note that all modules created within the framework will be listed under either of these two scripts.
-
-## Init & Start Methods
-For both server-side services and client-side controllers, the `Init` methods are executed one-by-one on the _same_ thread. Each `Init` method must finish before the next one is called. Once every single `Init` is finished, the framework will then call each `Start` method on _different_ threads. Therefore, it is not wise to yield within any `Init` method, but doing so in the `Start` methods will be fine.
+### Other differences/similarities
+- Injected functions like `RegisterEvent` are the same; however, `RegisterClientEvent` is no longer preferred, as `Aero.Async` and `Aero.AsyncVoid` allows these events to have strict types for the client, and unknown types for the server.
+- `ReplicatedStorage.Aero.Shared` is now just `ReplicatedStorage.Aero.Modules`
+- `_G.Aero` is now `_G.AeroClient` to distinguish it from the Aero core module in ReplicatedStorage
+- Certain modules, like `Event` and `ListenerList` are now in the core Aero namespace instead of the modules folder
