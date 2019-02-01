@@ -26,8 +26,8 @@ for i = 1, CLOSE_CHUNKS do
             end
 
             -- Run next request if one is found
-            if (nextKey) then
-                local success, err = pcall(nextBuffer.Callback(unpack(nextBuffer.Args)))
+            if (nextKey ~= nil and nextBuffer ~= nil) then
+                local success, err = pcall(nextBuffer.Callback, unpack(nextBuffer.Args))
                 if (not success) then
                     warn("Game:BindToClose() scheduled request failed because of error: " .. err)
                 end
@@ -46,7 +46,6 @@ end
 local GameCloseManager = {}
 
 function GameCloseManager.Schedule(func, ...)
-    print("Scheduling", func, ...)
     local uniqueKey = {}
     requestBuffer[uniqueKey] = {
         Callback = func,

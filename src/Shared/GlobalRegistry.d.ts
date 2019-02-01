@@ -1,9 +1,10 @@
 import {MyService, MyServiceClient} from "../Server/Services/MyService"
 import { StoreService } from "Server/Services/StoreService";
 import { DataService } from "Server/Services/DataService";
-import Aero = require("Shared/Modules/Aero");
 import { MyController } from "Client/Controllers/MyController";
 import UserInput = require("Client/Controllers/UserInput");
+
+import Aero = require("Shared/Modules/Aero");
 
 // In order to expose your service's types, you must add it to the global registry
 // NOTE: The key must match the module's name, and the module must be placed directly in the corresponding Services/Controllers folder!

@@ -115,8 +115,6 @@ function LoadClientInterface(serviceFolder)
 						trackedResponses[timestamp] = {Resolve = resolve, Reject = reject}
 						v:FireServer(timestamp, unpack(args))
 						checkTimeouts()
-
-						print("Sent request", timestamp, unpack(args))
 					end)
 				end
 			elseif (game:GetService("CollectionService"):HasTag(v, "AsyncVoid")) then

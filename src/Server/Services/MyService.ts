@@ -3,30 +3,17 @@ import * as Aero from "Shared/Modules/Aero"
 // Server service
 export class MyService extends Aero.Service {
     Init() {
-        this.RegisterEvent("Hello!")
     }
     Start() {
-        this.DoThing()
-        this.ConnectEvent("Hello", (whom: string) => {
-
-        })
-        print("Hello service!")
     }
-
-    DoOtherThing() {
-
-    }
-
-    DoThing() {
-        this.Services.MyService.DoOtherThing()
-        //this.Services.NonexistentService.DoThing()
+    DoSomething() {
     }
 }
 
 // Client-interfacing methods
 export class MyServiceClient extends Aero.ClientInterface<MyService> {
     DoSomething = Aero.Sync(() => {
-        this.Server.DoThing()
+        this.Server.DoSomething()
     })
     DoSomethingAsync = Aero.Async<(arg1: string) => string>((player: Player, arg1) => {
         // This should automatically be asynchronous
@@ -35,5 +22,9 @@ export class MyServiceClient extends Aero.ClientInterface<MyService> {
     DoSomething2Async = Aero.AsyncVoid((player: Player, arg1) => {
         // This should automatically be asynchronous
         print("Hello async void")
+    })
+    Greet = Aero.Async<(clientName: string) => string>((player: Player, clientName) => {
+        // This should automatically be asynchronous
+        return "Hello, " + clientName
     })
 }
