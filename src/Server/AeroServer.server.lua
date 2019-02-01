@@ -153,13 +153,15 @@ function LoadService(module)
 			-- Static class should have an __index with a metatable of Aero.Service
             if (typeof(export) == "table" and export.__index and getmetatable(export.__index)) then
                 if (getmetatable(export.__index) == Aero.Service) then
-                    -- Create and register service
-                    local service = export.new()
-    
-                    AeroServer.Services[module.Name] = service
-                    
-                    service._events = {}
-                    service._clientEvents = {}
+					if (export.Disabled ~= true) then
+						-- Create and register service
+						local service = export.new()
+		
+						AeroServer.Services[module.Name] = service
+						
+						service._events = {}
+						service._clientEvents = {}
+					end
                 end
             end
         end
@@ -169,7 +171,7 @@ function LoadService(module)
             if (typeof(export) == "table" and export.__index and getmetatable(export.__index)) then
                 if (getmetatable(export.__index) == Aero.ClientInterface) then
                     local service = AeroServer.Services[module.Name]
-                    if (service) then
+                    if (service and service.Disabled ~= true) then
                         -- Create client interface
                         local clientInterface = export.new(service)
 

@@ -163,8 +163,10 @@ function LoadController(module)
 		for _,export in pairs(_exports) do
 			-- Static class should have an __index with a metatable of Aero.Controller
 			if (typeof(export) == "table" and export.__index and getmetatable(export.__index) and getmetatable(export.__index) == Aero.Controller) then
-				local controller = export.new()
-				AeroClient.Controllers[module.Name] = controller
+				if (export.Disabled ~= true) then
+					local controller = export.new()
+					AeroClient.Controllers[module.Name] = controller
+				end
 			end
 		end
 	end

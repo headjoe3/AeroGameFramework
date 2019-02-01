@@ -1,6 +1,9 @@
 export = Aero
 declare namespace Aero {
     abstract class Service {
+        /** If set to true, the service will not be initialized or started. */
+        public Disabled?: boolean
+
         /** Asynchronous function called at runtime after all services have been initialized */
         public Start(): void
         /** Synchronous function called at runtime after all services have been imported, but before they are started */
@@ -24,6 +27,9 @@ declare namespace Aero {
         //Shared: GlobalAeroSharedModules
     }
     abstract class Controller {
+        /** If set to true, the controller will not be initialized or started. */
+        public Disabled?: boolean
+
         /** Asynchronous function called at runtime after all controllers have been initialized */
         public Start(): void
         /** Synchronous function called at runtime after all controllers have been imported, but before they are started */
