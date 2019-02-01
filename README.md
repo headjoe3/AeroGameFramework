@@ -141,6 +141,9 @@ declare global {
     }
 
     interface GlobalAeroClientInterfaces extends Record<string, Aero.ClientInterface<Aero.Service>>  {
+        StoreService: StoreServiceClient
+        DataService: DataServiceClient
+        
         // Add your client interfaces here
         MyService: MyServiceClient
     }
