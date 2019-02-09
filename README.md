@@ -45,7 +45,7 @@ Secondly, make sure you are familiar with Roblox-TS and Rojo, and the process of
 
 # Differences from the original AeroGameFramework
 
-While the concept is the same, aero-ts has some major changes from the original framework. Here are a few major differences:
+While the concept is the same, aero-ts has some major changes from the original framework. There are a few major differences:
 ### Services and Controllers exported are classes
 ```ts
 import * as Aero from "Shared/Modules/Aero"
@@ -80,14 +80,38 @@ export class MyService extends Aero.Service {
 
 // Client-interfacing methods
 export class MyServiceClient extends Aero.ClientInterface<MyService> {
-    DoSomethingAsync = Aero.AsyncVoid(() => {
+    DoSomethingAsync = Aero.ServerAsyncVoid(() => {
         this.Server.DoSomething()
     })
 }
 ```
 
-### Client-interfacing methods now fall into three categories: Sync, Async, and AsyncVoid
-When I began porting the framework, I noticed that the DataService and StoreService implementations did not have any type checks whatsoever for player-interfacing functions. While I don't know how exactly this could be exploited, client-interfacing methods must now be wrapped in `Aero.Sync`, `Aero.Async`, or `Aero.AsyncVoid` function wrappers. Using the magic of TypeScript, these functions *force you* to not trust the client's input!
+### Events are no longer registered, but are instantiated once
+One flaw with the old AeroGameFramework was that events required you to redundantly specify event names and parameters wherever they were used. This poses a major problem for a typesafe AGF. Events have now been re-designed so that they only have to be instantiated once. Once an event is created, it can be used in Server-to-server, client-to-client, and server-to-client contexts as needed:
+
+Using an event in a client interface:
+```ts
+const PLAYER_COINS_UPDATE = new Aero.Event<(player: Player, coins: number) => void>()
+
+// ...
+
+export class MyServiceClient extends Aero.ClientInterface<MyService> {
+    OnCoinsUpdate = Aero.ClientEvent(PLAYER_COINS_UPDATE) // This event has now been exposed to other client controllers as OnCoinsUpdate
+}
+```
+
+Using an event in a local interface:
+
+```ts
+const SOMETHING_CHANGED_EVENT = new Aero.Event<(thing: string, change: Object) => void>()
+
+export class MyService extends Aero.Service {
+    SomethingChangedEvent = SOMETHING_CHANGED_EVENT // This event has now been exposed to other services as SomethingChangedEvent
+}
+```
+
+### Client-to-server interfacing methods can be wrapped in three categories: Sync, Async, and AsyncVoid
+When I began porting the framework, I noticed that the DataService and StoreService implementations did not have any type checks whatsoever for player-interfacing functions. While I don't know how exactly this could be exploited, client-interfacing methods must now be wrapped in `Aero.ServerSync`, `Aero.ServerAsync`, or `Aero.ServerAsyncVoid` function wrappers. Using the magic of TypeScript, these functions *force you* to not trust the client's input!
 ![You can't fool the compiler!](https://i.imgur.com/ilEXSp0.png)
 aero-ts forces the first parameter to be typed as "Player", and any other parameters to be typed as "unknown", because after all—You don't know what the client will send you.
 You can still define the *expected* parameter types in your client-interfacing method using the type argument of Sync/Async/AsyncVoid
@@ -112,6 +136,36 @@ export class MyController extends Aero.Controller {
 ```
 Both the client Controller and the server Service know that the client interface method "Greet" expects a string and returns a string
 ![Intellisense](https://i.imgur.com/z3Q7BO1.png)
+
+### ClientEvent and AllClientEvent wrap regular events
+You can now easily expose your events and their types to the client through the ClientInterface class. Wrapped ClientEvent events must have the target player as the first parameter; this parameter will automatically be removed when the player receives the vent. Wrapped AllClientEvent events have no parameter restrictions. Type safety is preserved on both the server and the client.
+
+MyService.ts
+```ts
+const TIME_REMAINING_UPDATE = new Aero.Event<(timeRemaining: number) => void>()
+const PLAYER_COINS_UPDATE = new Aero.Event<(player: Player, coins: number) => void>()
+
+//...
+
+export class MyServiceClient extends Aero.ClientInterface<MyService> {
+    OnTimeRemainingUpdate = Aero.AllClientsEvent(TIME_REMAINING_UPDATE)
+    OnCoinsUpdate = Aero.ClientEvent(PLAYER_COINS_UPDATE)
+}
+```
+
+The can be easily connected to easily with a client controller:
+
+MyController.ts
+```ts
+export class MyController extends Aero.Controller {
+    Start() {
+        // Connect to player event
+        this.Services.MyService.OnCoinsUpdate.Connect(coins => {
+            print("I now have " + coins + " coins!")
+        })
+    }
+}
+```
 
 ### Services, Controllers, and ClientInterfaces must be registered in `GlobalRegistry.d.ts`
 In order to expose the "Services" and "Controllers" properties of Services and Controllers, the types of each service and controller must first be globally exposed. This is achieved through a file in the `Shared` folder called `GlobalRegistry.d.ts`. This is an ambient TypeScript file (meaning it will not actually be compiled), which allows everything to be typesafe.
@@ -163,13 +217,22 @@ When adding a Service or Controller, make sure to add it to the global registry 
 
 Once you add a service/controller to the global registry, you may now access it within another service or controller using `this.Services`, and `this.Controllers`
 
+Due to roblox-ts allowing multiple module imports, _all subfolders_ of the Services and Controllers folder will be recursively searched for exported Services and Controllers at runtime. This may prove useful for organizing larger projects with many services and controllers.
+
+Sub-folders can be added to the global registry with "FolderName.ModuleName"
+For example, if you want to create a folder of WeaponControllers, you can add sub-folder controllers to the global registry like this:
+```ts
+import {WeaponInputController} from "Client/Controllers/WeaponControllers/WeaponInputController"
+
+interface GlobalAeroControllers extends Record<string, Aero.Controller> {
+    WeaponControllers {
+        WeaponInputController: WeaponInputController
+    }
+}
+```
+Note again that registered names must strictly match folder/module names, regardless of what is exported.
+
 ### Modules are NOT lazy-loaded, and act like regular modules without any injection
-The only objects that can access other Services or Controllers are Services and Controllers. This was done intentionally, as it seems to me like bad practice to expose them otherwise. The "Modules" folder no longer has any special meaning (except in Shared.Modules, which is where the Aero core is located), and should be used for utility classes, functions, and data that should accomplish its task without invoking other services or having circular dependencies.
+The only objects that are injected with access to other Services or Controllers are Services and Controllers. This was done intentionally to promote low coupling in non-service and non-controller. The "Modules" folder no longer has any special meaning (except in Shared.Modules, which is where the Aero core is located), and should be used for utility classes, functions, and data that should accomplish its task without invoking other services or having circular dependencies.
 
-If absolutely need to access the Services or Controllers, you can use `_G.AeroClient` and `_G.AeroServer` to find them.
-
-### Other differences/similarities
-- Injected functions like `RegisterEvent` are the same; however, `RegisterClientEvent` is no longer preferred, as `Aero.Async` and `Aero.AsyncVoid` allows these events to have strict types for the client, and unknown types for the server.
-- `ReplicatedStorage.Aero.Shared` is now just `ReplicatedStorage.Aero.Modules`
-- `_G.Aero` is now `_G.AeroClient` to distinguish it from the Aero core module in ReplicatedStorage
-- Certain modules, like `Event` and `ListenerList` are now in the core Aero namespace instead of the modules folder
+If you want to access the Aero core externally, you may use `Aero.WaitForServer()` and `Aero.WaitForClient()`
