@@ -192,7 +192,6 @@ export class DataService extends Aero.Service {
             })
         })
         customCaches.forEach(cache => {
-            print("Saving custom cache", cache)
             spawn(() => {
                 cache.FlushAll()
                 IncFlushed()

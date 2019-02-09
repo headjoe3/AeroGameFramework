@@ -12,7 +12,7 @@ declare global {
 
     // Server
 
-    interface GlobalAeroServices extends Record<string, Aero.Service> {
+    interface GlobalAeroServices {
         StoreService: StoreService
         DataService: DataService
 
@@ -20,7 +20,7 @@ declare global {
         MyService: MyService
     }
 
-    interface GlobalAeroClientInterfaces extends Record<string, Aero.ClientInterface<Aero.Service>>  {
+    interface GlobalAeroClientInterfaces {
         StoreService: StoreServiceClient
         DataService: DataServiceClient
 
@@ -30,7 +30,7 @@ declare global {
 
     // Client
 
-    interface GlobalAeroControllers extends Record<string, Aero.Controller> {
+    interface GlobalAeroControllers {
         UserInput: UserInput
 
         // Add your controllers here
