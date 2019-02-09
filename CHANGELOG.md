@@ -1,7 +1,7 @@
 # Aero-ts Change Log
 
 ### Version 1.0.1
-- Removed support RegisterEvent. Events are now constructed using the following syntax:
+- Removed support for RegisterEvent. Events are now constructed using the following syntax:
 ```ts
 const MY_EVENT = new Aero.Event<(myParameter: string) => void>()
 ```
