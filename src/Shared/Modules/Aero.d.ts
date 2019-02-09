@@ -8,16 +8,6 @@ declare namespace Aero {
         public Start(): void
         /** Synchronous function called at runtime after all services have been imported, but before they are started */
         public Init(): void
-        
-        public RegisterEvent(name: string): void
-        public RegisterClientEvent(name: string): void
-        
-        public ConnectEvent(name: string, listener: (...args: any[]) => void): void
-        public ConnectClientEvent(name: string, listener: (client: Player, ...args: any[]) => void): void
-
-        public FireEvent(name: string, ...args: any[]): void
-        public FireClientEvent(name: string, player: Player, ...args: any[]): void
-        public FireAllClientsEvent(name: string, ...args: any[]): void
 
         /** Server-side services */
         Services: GlobalAeroServices
@@ -34,11 +24,6 @@ declare namespace Aero {
         public Start(): void
         /** Synchronous function called at runtime after all controllers have been imported, but before they are started */
         public Init(): void
-        
-        public ConnectEvent(name: string, listener: (...args: any[]) => void): void
-        public RegisterEvent(name: string): void
-
-        public FireEvent(name: string, ...args: any[]): void
 
         /** Client-side controllers */
         Controllers: GlobalAeroControllers
@@ -58,14 +43,25 @@ declare namespace Aero {
         public Server: ServiceType
     }
 
+    /** Wraps an event in a single-client event interface */
+    // @ts-ignore
+    function ClientEvent<T extends (player: Player, ...args: any[]) => any>(event: Event<T>): Event<(...args: (ClientEventArguments<T>)) => void>
+
+    type ClientEventArguments<T> = T extends (player: Player, ...args: infer U) => void ? U : never;
+    type x<T extends (player: Player, ...args: any[]) => void> = (...args: ClientEventArguments<T>) => void
+    const x: x<(player: Player, thing: string) => void>
+
+    /** Wraps an event in a "all clients" event interface */
+    function AllClientsEvent<T extends (...args: any[]) => any>(event: Event<T>): Event<T>
+
     /** An asynchronous function that should fire two ways and yield, but with unkown user input types. */
-    function Sync<T extends (...args: any[]) => any>(func: (player: Player, ...args: unknown[]) => ReturnType<T>): (...args: FunctionArguments<T>) => ReturnType<T>
+    function ServerSync<T extends (...args: any[]) => any>(func: (player: Player, ...args: unknown[]) => ReturnType<T>): (...args: FunctionArguments<T>) => ReturnType<T>
 
     /** An asynchronous function that should fire one-way and return a promise. */
-    function Async<T extends (...args: any[]) => any>(func: (player: Player, ...args: unknown[]) => ReturnType<T>): (...args: FunctionArguments<T>) => Promise<ReturnType<T>>
+    function ServerAsync<T extends (...args: any[]) => any>(func: (player: Player, ...args: unknown[]) => ReturnType<T>): (...args: FunctionArguments<T>) => Promise<ReturnType<T>>
 
     /** An asynchronous function that should fire one-way without returning */
-    function AsyncVoid<T extends (...args: any[]) => void>(func: (player: Player, ...args: unknown[]) => void): (...args: FunctionArguments<T>) => void
+    function ServerAsyncVoid<T extends (...args: any[]) => void>(func: (player: Player, ...args: unknown[]) => void): (...args: FunctionArguments<T>) => void
 
     class Connection<T extends (...args: any[]) => void> {
         constructor(listener: T )
@@ -102,4 +98,18 @@ declare namespace Aero {
         DisconnectRenderSteps(): void
         DisconnectActions(): void
     }
+
+    type AeroServer = Service
+    type AeroClient = Controller
+
+    /** Gets the aero server if it has been loaded */
+    function GetServer(): AeroServer | undefined
+    /** Gets the aero server if it has been loaded */
+    function GetClient(): AeroClient | undefined
+    /** Yields until the aero server has been loaded */
+    function WaitForServer(): AeroServer
+    /** Yields until the aero client has been loaded */
+    function WaitForClient(): AeroClient
+
+    function CallAll(componentList: Object, asynchronous: boolean, functionName: string, ...params: any[]): void
 } 

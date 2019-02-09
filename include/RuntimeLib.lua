@@ -1,7 +1,12 @@
 local Promise = require(script.Parent.Promise)
 
 -- constants
+local TYPE_NIL = "nil"
 local TYPE_STRING = "string"
+local TYPE_TABLE = "table"
+local TYPE_USERDATA = "userdata"
+local TYPE_FUNCTION = "function"
+local TYPE_INSTANCE = "Instance"
 
 local TS = {}
 
@@ -49,23 +54,6 @@ local Symbol do
 end
 TS.Symbol = Symbol
 
--- Instance class values
-TS.Instance = setmetatable({}, {
-	__index = function(self, className)
-		local object = setmetatable({
-			new = function(parent)
-				return Instance.new(className, parent)
-			end
-		}, {
-			__tostring = function()
-				return className
-			end
-		})
-		self[className] = object
-		return self[className]
-	end
-})
-
 -- module resolution
 local globalModules = script.Parent.Parent:FindFirstChild("Modules")
 
@@ -94,17 +82,20 @@ function TS.getModule(moduleName, object)
 end
 
 function TS.import(root, ...)
-	local currentInstance = typeof(root) == "Instance" and root or game:GetService(root)
-	local path = { ... }
-	if currentInstance then
-		for _, part in pairs(path) do
-			currentInstance = currentInstance and currentInstance:WaitForChild(part)
-		end
+	local currentInstance = typeof(root) == TYPE_INSTANCE and root or game:GetService(root)
+
+	if not currentInstance then
+		error("Failed to find root in which to search for ModuleScripts, got " .. typeof(root) .. " " .. tostring(root), 2)
 	end
-	if currentInstance and currentInstance:IsA("ModuleScript") then
+
+	for i = 1, select("#", ...) do
+		currentInstance = currentInstance:WaitForChild((select(i, ...)))
+	end
+
+	if currentInstance.ClassName == "ModuleScript" then
 		return require(currentInstance)
 	else
-		error("Failed to import!", 2)
+		error("Failed to import! Expected ModuleScript, got " .. currentInstance.ClassName, 2)
 	end
 end
 
@@ -117,27 +108,35 @@ end
 -- general utility functions
 function TS.typeof(value)
 	local type = typeof(value)
-	if type == "table" then
+	if type == TYPE_TABLE or type == TYPE_USERDATA then
 		return "object"
-	elseif type == "nil" then
+	elseif type == TYPE_NIL then
 		return "undefined"
 	else
 		return type
 	end
 end
 
-function TS.instanceof(obj, class)
-    while obj ~= nil do
-        if obj == class then
-            return true
-        end
-        obj = getmetatable(obj)
-    end
-    return false
+function TS.typeIs(value, typeName)
+	return typeof(value) == typeName
 end
 
-function TS.isA(instance, className)
-	return typeof(instance) == "Instance" and instance:IsA(className)
+function TS.instanceof(obj, class)
+
+	-- custom Class.instanceof() check
+	if typeof(class) == TYPE_TABLE and typeof(class.instanceof) == TYPE_FUNCTION then
+		return class.instanceof(obj)
+	end
+
+	-- metatable check
+	while obj ~= nil do
+		if obj == class then
+			return true
+		end
+		obj = getmetatable(obj)
+	end
+
+	return false
 end
 
 function TS.async(callback)
@@ -165,7 +164,7 @@ function TS.await(promise)
 	if ok then
 		return result
 	else
-		TS.error(ok == nil and "The awaited Promise was cancelled" or result, 2)
+		TS.throw(ok == nil and "The awaited Promise was cancelled" or result)
 	end
 end
 
@@ -392,8 +391,9 @@ end
 
 function TS.array_reverse(list)
 	local result = {}
-	for i = 1, #list do
-		result[i] = list[#list - i + 1]
+	local length = #list
+	for i = 1, length do
+		result[i] = list[length - i + 1]
 	end
 	return result
 end
@@ -430,10 +430,11 @@ end
 
 function TS.array_unshift(list, ...)
 	local args = { ... }
+	local argsLength = #args
 	for i = #list, 1, -1 do
-		list[i + #args] = list[i]
+		list[i + argsLength] = list[i]
 	end
-	for i = 1, #args do
+	for i = 1, argsLength do
 		list[i] = args[i]
 	end
 	return #list
@@ -459,10 +460,11 @@ function TS.array_push(list, ...)
 	for i = 1, #args do
 		list[#list + 1] = args[i]
 	end
+	return #list
 end
 
 function TS.array_pop(list)
-	local length = #list;
+	local length = #list
 	local lastValue = list[length]
 	list[length] = nil
 	return lastValue
@@ -658,32 +660,89 @@ function TS.Object_assign(toObj, ...)
 	return toObj
 end
 
--- Error objects
-do
-	local errors = setmetatable({}, {__mode = "v"})
-	local nextErrorId = 0
-
-	function TS.error(thrown, level)
-		if level ~= 0 then
-			level = (level or 1) + 1
+function TS.Roact_combine(...)
+	local args = {...}
+	local result = {}
+	for i = 1, #args do
+		for key, value in pairs(args[i]) do
+			if (type(key) == "number") then
+				table.insert(result, value)
+			else
+				result[key] = value
+			end
 		end
+	end
+	return result
+end
 
-		nextErrorId = nextErrorId + 1
+-- try catch utilities
 
-		local id = nextErrorId
+local function pack(...)
+	local result = { ... }
+	result.size = select("#", ...)
+	return result
+end
 
-		errors[id] = thrown
-		error("[<[" .. id .. "]>] " .. tostring(thrown), level)
+local throwStack = {}
+
+function TS.throw(value)
+	if #throwStack > 0 then
+		throwStack[#throwStack](value)
+	else
+		error("Uncaught " .. tostring(value), 2)
+	end
+end
+
+function TS.try(tryCallback, catchCallback)
+	local done = false
+	local yielded = false
+	local popped = false
+	local resumeThread = coroutine.running()
+
+	local returns
+
+	local function pop()
+		if not popped then
+			popped = true
+			throwStack[#throwStack] = nil
+		end
 	end
 
-	function TS.decodeError(errorMessage)
-		local result
-		local key = errorMessage:match("%[%<%[(.-)%]%>%]")
-		if key ~= nil then
-			result = errors[tonumber(key)]
+	local function resume()
+		if yielded then
+			local success, errorMsg = coroutine.resume(resumeThread)
+			if not success then
+				warn(errorMsg)
+			end
+		else
+			done = true
 		end
-		return result or errorMessage
 	end
+
+	local function throw(value)
+		pop()
+		if catchCallback then
+			returns = pack(catchCallback(value))
+		end
+		resume()
+		coroutine.yield()
+	end
+
+	throwStack[#throwStack + 1] = throw
+
+	coroutine.wrap(function()
+		returns = pack(tryCallback())
+		resume()
+	end)()
+
+	if not done then
+		yielded = true
+		coroutine.yield()
+	end
+
+	pop()
+
+	return returns
 end
 
 return TS

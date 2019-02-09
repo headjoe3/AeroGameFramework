@@ -15,13 +15,14 @@ local AeroClient = {
 
 local mt = {__index = AeroClient}
 
+local CollectionService = game:GetService("CollectionService")
 local controllersFolder = script.Parent:WaitForChild("Controllers")
 local sharedModulesFolder = game:GetService("ReplicatedStorage"):WaitForChild("Aero"):WaitForChild("Modules")
 local TSInternalFolder = game:GetService("ReplicatedStorage"):WaitForChild("RobloxTS"):WaitForChild("Include")
 
 local Aero = require(sharedModulesFolder:WaitForChild("Aero"))
-local FastSpawn = require(sharedModulesFolder:WaitForChild("FastSpawn"))
 local Promise = require(TSInternalFolder:WaitForChild("Promise"))
+--local FastSpawn = require(sharedModulesFolder:WaitForChild("FastSpawn"))
 
 -- Runtime override of Aero classes
 function ExtendAeroClient(class)
@@ -55,6 +56,7 @@ function AeroClient:WaitForEvent(eventName)
 	return self._events[eventName]:Wait()
 end
 
+--[[ Deprecated
 function AeroClient:WrapModule(tbl)
 	assert(type(tbl) == "table", "Expected table for argument")
 	tbl._events = {}
@@ -66,13 +68,15 @@ function AeroClient:WrapModule(tbl)
 		FastSpawn(tbl.Start, tbl)
 	end
 end
+]]
 
-function LoadClientInterface(serviceFolder)
+local loadedClientInterfaces = {}
+
+function LoadClientInterface(serviceFolder, rootTable)
 	local clientInterface = {}
-	AeroClient.Services[serviceFolder.Name] = clientInterface
 	for _,v in pairs(serviceFolder:GetChildren()) do
 		if (v:IsA("RemoteEvent")) then
-			if (game:GetService("CollectionService"):HasTag(v, "Async")) then
+			if (CollectionService:HasTag(v, "ServerAsync")) then
 				local trackedResponses = {}
 
 				local checkingTimeouts = false
@@ -117,46 +121,56 @@ function LoadClientInterface(serviceFolder)
 						checkTimeouts()
 					end)
 				end
-			elseif (game:GetService("CollectionService"):HasTag(v, "AsyncVoid")) then
+			elseif (CollectionService:HasTag(v, "ServerAsyncVoid")) then
 				-- Wrap async event in void function
 				clientInterface[v.Name] = function(...)
 					local timestamp = tick()
 					v:FireServer(timestamp, ...)
 				end
-			else
-				-- Otherwise, wrap event normally
+			elseif (CollectionService:HasTag(v, "ClientEvent") or CollectionService:HasTag(v, "AllClientsEvent")) then
+				-- Wrap client event in a new custom event
 				local event = Aero.Event.new()
-				local fireEvent = event.Fire
-				function event:Fire(...)
-					v:FireServer(...)
-				end
 				v.OnClientEvent:Connect(function(...)
-					fireEvent(event, ...)
+					event:Fire(...)
 				end)
 				clientInterface[v.Name] = event
 			end
 		elseif (v:IsA("RemoteFunction")) then
-			if (game:GetService("CollectionService"):HasTag(v, "Sync")) then
+			if (CollectionService:HasTag(v, "ServerSync")) then
 				clientInterface[v.Name] = function(self, ...)
 					return v:InvokeServer(...)
 				end
 			end
 		end
 	end
-end
-
-
-function LoadClientInterfaces()
-	local remoteServices = game:GetService("ReplicatedStorage"):WaitForChild("Aero"):WaitForChild("AeroRemoteServices")
-	for _,serviceFolder in pairs(remoteServices:GetChildren()) do
-		if (serviceFolder:IsA("Folder")) then
-			LoadClientInterface(serviceFolder)
-		end
+	if (next(clientInterface)) then
+		rootTable[serviceFolder.Name] = clientInterface
+		table.insert(loadedClientInterfaces, clientInterface)
 	end
 end
 
 
-function LoadController(module)
+function LoadClientInterfaces()
+	local function recur(search, rootTable)
+		for _,child in pairs(search:GetChildren()) do
+			if (child:IsA("Folder")) then
+				LoadClientInterface(child, rootTable)
+			end
+			local qualifierTable = {}
+			recur(child, qualifierTable)
+			if next(qualifierTable) then
+				rootTable[child.Name] = qualifierTable
+			end
+		end
+	end
+	local remoteServices = game:GetService("ReplicatedStorage"):WaitForChild("Aero"):WaitForChild("AeroRemoteServices")
+	recur(remoteServices, AeroClient.Services)
+end
+
+local loadedControllers = {}
+
+
+function LoadController(module, rootTable)
 	local _exports = require(module)
 
 	if typeof(_exports) == "table" then
@@ -165,26 +179,29 @@ function LoadController(module)
 			if (typeof(export) == "table" and export.__index and getmetatable(export.__index) and getmetatable(export.__index) == Aero.Controller) then
 				if (export.Disabled ~= true) then
 					local controller = export.new()
-					AeroClient.Controllers[module.Name] = controller
+					rootTable[module.Name] = controller
+					table.insert(loadedControllers, controller)
 				end
 			end
 		end
 	end
 end
 
-
-function InitController(controller)
-	if (type(controller.Init) == "function") then
-		controller:Init()
+function LoadControllers()
+	local function recur(search, rootTable)
+		for _,child in pairs(search:GetChildren()) do
+			if (child:IsA("ModuleScript")) then
+				LoadController(child, rootTable)
+			else
+				local qualifierTable = {}
+				recur(child, qualifierTable)
+				if next(qualifierTable) then
+					rootTable[child.Name] = qualifierTable
+				end
+			end
+		end
 	end
-end
-
-
-function StartController(controller)
-	-- Start controllers on separate threads:
-	if (type(controller.Start) == "function") then
-		FastSpawn(controller.Start, controller)
-	end
+	recur(controllersFolder, AeroClient.Controllers)
 end
 
 
@@ -193,21 +210,13 @@ function Init()
 	LoadClientInterfaces()
 	
 	-- Load controllers:
-	for _,module in pairs(controllersFolder:GetChildren()) do
-		if (module:IsA("ModuleScript")) then
-			LoadController(module)
-		end
-	end
+	LoadControllers()
 	
 	-- Initialize controllers:
-	for _,controller in pairs(AeroClient.Controllers) do
-		InitController(controller)
-	end
+	Aero.CallAll(loadedControllers, false, "Init")
 	
 	-- Start controllers:
-	for _,controller in pairs(AeroClient.Controllers) do
-		StartController(controller)
-	end
+	Aero.CallAll(loadedControllers, true, "Start")
 
 	-- Expose client framework globally:
 	_G.AeroClient = AeroClient

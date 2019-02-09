@@ -55,10 +55,10 @@ const AUTOSAVE_INTERVAL = 60
 
 const NAME_SCOPE_KEY_FORMAT = "name=%s;scope=%s"
 
-const PLAYER_FAILED_EVENT = "PlayerFailed"
-const GLOBAL_FAILED_EVENT = "GlobalFailed"
-const CUSTOM_FAILED_EVENT = "CustomFailed"
-const CLIENT_FAILED_EVENT = "Failed"
+const PLAYER_FAILED_EVENT = new Aero.Event<(player: Player, method: string, key: string, errMsg: string) => void>()
+const GLOBAL_FAILED_EVENT = new Aero.Event<(method: string, key: string, errMsg: string) => void>()
+const CUSTOM_FAILED_EVENT = new Aero.Event<(name: string, scope: string, method: string, key: string, errMsg: string) => void>()
+const CLIENT_FAILED_EVENT = new Aero.Event<(player: Player, method: string, key: string, errMsg: string) => void>()
 
 const playerCaches = new Map<Player, Cache>()
 const customCaches = new Map<string, Cache>()
@@ -68,6 +68,10 @@ const boundToCloseFuncs: (() => void)[] = []
 
 export class DataService extends Aero.Service {
     private GameClosing = false
+    private PlayerFailedEvent = PLAYER_FAILED_EVENT
+    private GlobalFailedEvent = GLOBAL_FAILED_EVENT
+    private CustomFailedEvent = CUSTOM_FAILED_EVENT
+    private ClientFailedEvent = CLIENT_FAILED_EVENT
     GetPlayerCache(player: Player) {
         let cache = playerCaches.get(player)
         if ((!cache)) {
@@ -79,8 +83,8 @@ export class DataService extends Aero.Service {
             }
             playerCaches.set(player, cache)
             cache.Failed.Connect((method, key, errMsg) => {
-                this.FireEvent(PLAYER_FAILED_EVENT, player, method, key, errMsg)
-                this.FireClientEvent(CLIENT_FAILED_EVENT, player, method, key, errMsg)
+                this.PlayerFailedEvent.Fire(player, method, key, errMsg)
+                this.ClientFailedEvent.Fire(player, method, key, errMsg)
             })
         }
         return cache
@@ -92,12 +96,12 @@ export class DataService extends Aero.Service {
             cache = new Cache(name, scope)
             customCaches.set(nameScopeKey, cache)
             cache.Failed.Connect((method, key, errMsg) => {
-                this.FireEvent(CUSTOM_FAILED_EVENT, name, scope, method, key, errMsg)
+                this.CustomFailedEvent.Fire(name, scope, method, key, errMsg)
             })
         }
         return cache
     }
-    Set(player: Player, key: string, value: any) {
+    Set(player: Player, key: string, value: unknown) {
         this.GetPlayerCache(player).Set(key, value)
     }
     Get(player: Player, key: string) {
@@ -256,23 +260,22 @@ export class DataService extends Aero.Service {
         
     }
     Init() {
-
-        this.RegisterEvent(PLAYER_FAILED_EVENT)
-        this.RegisterEvent(GLOBAL_FAILED_EVENT)
-        this.RegisterEvent(CUSTOM_FAILED_EVENT)
-        this.RegisterClientEvent(CLIENT_FAILED_EVENT)
     
         globalCache = new Cache("global", "global")
         globalCache.Failed.Connect((method, key, errMsg) => {
-            this.FireEvent(GLOBAL_FAILED_EVENT, method, key, errMsg)
+            this.GlobalFailedEvent.Fire(method, key, errMsg)
         })
     
     }
+
+    // Temporarily disabled until existing data store system can be ported
+    Disabled = true
 }
 
 
 export class DataServiceClient extends Aero.ClientInterface<DataService> {
-    Get = Aero.Sync<(key: string) => any>((player, key) => {
+    ClientFailed = Aero.ClientEvent(CLIENT_FAILED_EVENT)
+    Get = Aero.ServerSync<(key: string) => any>((player, key) => {
         if (typeof key === "string") {
             return this.Server.Get(player, key)
         }

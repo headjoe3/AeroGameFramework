@@ -25,13 +25,14 @@ import * as Aero from "Shared/Modules/Aero"
 
 
 const PRODUCT_PURCHASES_KEY = "ProductPurchases"
-const PROMPT_PURCHASE_FINISHED_EVENT = "PromptPurchaseFinished"
+const PROMPT_PURCHASE_FINISHED_EVENT = new Aero.Event<(player: Player, receiptInfo: ReceiptInfo) => void>()
 
 const MarketplaceService = game.GetService("MarketplaceService")
 
 const dataStoreScope = "PlayerReceipts"
 
 export class StoreService extends Aero.Service {
+    private PromptPurchaseFinished = PROMPT_PURCHASE_FINISHED_EVENT
     private IncrementPurchase(player: Player, productId: number | string) {
         productId = tostring(productId)
         let productPurchases = this.Services.DataService.Get(player, PRODUCT_PURCHASES_KEY)
@@ -71,8 +72,7 @@ export class StoreService extends Aero.Service {
         
         if ((player)) {
             this.IncrementPurchase(player, receiptInfo.ProductId)
-            this.FireEvent(PROMPT_PURCHASE_FINISHED_EVENT, player, receiptInfo)
-            this.FireClientEvent(PROMPT_PURCHASE_FINISHED_EVENT, player, receiptInfo)
+            this.PromptPurchaseFinished.Fire(player, receiptInfo)
         }
         
         return Enum.ProductPurchaseDecision.PurchaseGranted
@@ -94,16 +94,11 @@ export class StoreService extends Aero.Service {
     Start() {
         MarketplaceService.ProcessReceipt = (receiptInfo) => this.ProcessReceipt(receiptInfo)
     }
-    Init() {
-        // 'services = this.Services' - Seems like questionable practice to me. Circumvented using private functions.
-        this.RegisterEvent(PROMPT_PURCHASE_FINISHED_EVENT)
-        this.RegisterClientEvent(PROMPT_PURCHASE_FINISHED_EVENT)
-    }
 }
 
 export class StoreServiceClient extends Aero.ClientInterface<StoreService> {
     /** Get the number of productId's purchased. */
-    GetNumberPurchased = Aero.Sync<(productId: number | string) => number>((player, productId) => {
+    GetNumberPurchased = Aero.ServerSync<(productId: number | string) => number>((player, productId) => {
 
         // Alternative: use Osyris' 't' module — but we don't want too many dependencies here.
         if (typeof productId === "number" || typeof productId === "string") {
@@ -114,7 +109,7 @@ export class StoreServiceClient extends Aero.ClientInterface<StoreService> {
         return 0
     })
     /** Whether or not the productId has been purchased before. */
-    HasPurchased = Aero.Sync<(productId: number | string) => boolean>((player, productId) => {
+    HasPurchased = Aero.ServerSync<(productId: number | string) => boolean>((player, productId) => {
 
         if (typeof productId === "number") {
             return this.Server.HasPurchased(player, productId)
@@ -123,4 +118,5 @@ export class StoreServiceClient extends Aero.ClientInterface<StoreService> {
         // Fail silently
         return false
     })
+    PromptPurchaseFinished = Aero.ClientEvent(PROMPT_PURCHASE_FINISHED_EVENT)
 }

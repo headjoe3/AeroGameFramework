@@ -12,6 +12,7 @@ local AeroServer = {
 
 local mt = {__index = AeroServer}
 
+local CollectionService = game:GetService("CollectionService")
 local servicesFolder = game:GetService("ServerScriptService").Aero.Services
 local sharedModulesFolder = game:GetService("ReplicatedStorage").Aero.Modules
 
@@ -19,7 +20,7 @@ local remoteServices = Instance.new("Folder")
 remoteServices.Name = "AeroRemoteServices"
 
 local Aero = require(sharedModulesFolder.Aero)
-local FastSpawn = require(sharedModulesFolder.FastSpawn)
+--local FastSpawn = require(sharedModulesFolder.FastSpawn)
 
 -- Runtime override of Aero classes
 function ExtendAeroServer(class)
@@ -40,70 +41,60 @@ function AeroServer:RegisterEvent(eventName)
 end
 
 
-function AeroServer:RegisterClientEvent(eventName)
+function AeroServer:_RegisterClientEvent(eventName, event)
     if (not self._remoteFolder) then return end
 
-	local event = Instance.new("RemoteEvent")
-	event.Name = eventName
-	event.Parent = self._remoteFolder
-	self._clientEvents[eventName] = event
-	return event
+	local remote = Instance.new("RemoteEvent")
+	remote.Name = eventName
+	remote.Parent = self._remoteFolder
+
+	event:Connect(function(...)
+		remote:FireClient(...)
+	end)
+
+    -- Add tag
+    CollectionService:AddTag(remote, "ClientEvent")
+
+	self._clientEvents[eventName] = remote
+	return remote
 end
 
+function AeroServer:_RegisterAllClientsEvent(eventName, event)
+    if (not self._remoteFolder) then return end
 
-function AeroServer:FireEvent(eventName, ...)
-	self._events[eventName]:Fire(...)
+	local remote = Instance.new("RemoteEvent")
+	remote.Name = eventName
+	remote.Parent = self._remoteFolder
+
+	event:Connect(function(...)
+		remote:FireAllClients(...)
+	end)
+
+    -- Add tag
+    CollectionService:AddTag(remote, "AllClientsEvent")
+
+	self._clientEvents[eventName] = remote
+	return remote
 end
 
-
-function AeroServer:FireClientEvent(eventName, client, ...)
-	self._clientEvents[eventName]:FireClient(client, ...)
-end
-
-
-function AeroServer:FireAllClientsEvent(eventName, ...)
-	self._clientEvents[eventName]:FireAllClients(...)
-end
-
-
-function AeroServer:ConnectEvent(eventName, func)
-	return self._events[eventName]:Connect(func)
-end
-
-
-function AeroServer:ConnectClientEvent(eventName, func)
-	return self._clientEvents[eventName].OnServerEvent:Connect(func)
-end
-
-
-function AeroServer:WaitForEvent(eventName)
-	return self._events[eventName]:Wait()
-end
-
-
-function AeroServer:WaitForClientEvent(eventName)
-	return self._clientEvents[eventName]:Wait()
-end
-
-
-function AeroServer:RegisterSyncFunction(funcName, func)
+function AeroServer:_RegisterSyncFunction(funcName, func)
     if (not self._remoteFolder) then return end
     
 	local remoteFunc = Instance.new("RemoteFunction")
 	remoteFunc.Name = funcName
 	remoteFunc.OnServerInvoke = function(...)
-		return func(self._clientInterface, ...)
+		return func(...)
 	end
 
     -- Add tag
-    game:GetService("CollectionService"):AddTag(remoteFunc, "Sync")
+    CollectionService:AddTag(remoteFunc, "ServerSync")
 
 	remoteFunc.Parent = self._remoteFolder
 	return remoteFunc
 end
 
 
-function AeroServer:RegisterClientAsyncFunction(funcName, func, isVoid)
+function AeroServer:_RegisterClientAsyncFunction(funcName, func, isVoid)
     if (not self._remoteFolder) then return end
     
     -- Create event
@@ -119,16 +110,16 @@ function AeroServer:RegisterClientAsyncFunction(funcName, func, isVoid)
 
     -- Add tag
     if (isVoid) then
-        game:GetService("CollectionService"):AddTag(event, "AsyncVoid")
+        CollectionService:AddTag(event, "ServerAsyncVoid")
     else
-        game:GetService("CollectionService"):AddTag(event, "Async")
+        CollectionService:AddTag(event, "ServerAsync")
     end
 
 	event.Parent = self._remoteFolder
     return event
 end
 
-
+--[[ Deprecated
 function AeroServer:WrapModule(tbl)
 	assert(type(tbl) == "table", "Expected table for argument")
 	tbl._events = {}
@@ -140,10 +131,12 @@ function AeroServer:WrapModule(tbl)
 		FastSpawn(tbl.Start, tbl)
 	end
 end
+]]
 
+local loadedServices = {}
 
 -- Load service from module:
-function LoadService(module)
+function LoadService(module, rootTable)
 	
 	local _exports = require(module)
 
@@ -157,7 +150,8 @@ function LoadService(module)
 						-- Create and register service
 						local service = export.new()
 		
-						AeroServer.Services[module.Name] = service
+						rootTable[module.Name] = service
+						table.insert(loadedServices, service)
 						
 						service._events = {}
 						service._clientEvents = {}
@@ -170,7 +164,7 @@ function LoadService(module)
 		for _,export in pairs(_exports) do
             if (typeof(export) == "table" and export.__index and getmetatable(export.__index)) then
                 if (getmetatable(export.__index) == Aero.ClientInterface) then
-                    local service = AeroServer.Services[module.Name]
+                    local service = rootTable[module.Name]
                     if (service and service.Disabled ~= true) then
                         -- Create client interface
                         local clientInterface = export.new(service)
@@ -182,7 +176,27 @@ function LoadService(module)
 
                         -- Tie into service
                         service._remoteFolder = remoteFolder
-                        service._clientInterface = clientInterface
+						service._clientInterface = clientInterface
+						service.Client = clientInterface
+						
+						-- Register interface functions
+						for funcName, data in pairs(service._clientInterface) do
+							if (type(data) == "table") then
+								if (data._isEvent) then
+									if (data._isAllClients) then
+										service:_RegisterAllClientsEvent(funcName, data._event)
+									else
+										service:_RegisterClientEvent(funcName, data._event)
+									end
+								elseif (data._isAsync ~= nil and data._func ~= nil) then
+									if (data._isAsync == true) then
+										service:_RegisterClientAsyncFunction(funcName, data._func, data._isVoid)
+									elseif (data._isAsync == false) then
+										service:_RegisterSyncFunction(funcName, data._func)
+									end
+								end
+							end
+						end
                     end
                 end
             end
@@ -191,58 +205,34 @@ function LoadService(module)
 
 end
 
-
-function InitService(service)
-	
-	-- Initialize:
-	if (type(service.Init) == "function") then
-		service:Init()
+function LoadServices()
+	local function recur(search, rootTable)
+		for _,child in pairs(search:GetChildren()) do
+			if (child:IsA("ModuleScript")) then
+				LoadService(child, rootTable)
+			else
+				local qualifierTable = {}
+				recur(child, qualifierTable)
+				if next(qualifierTable) then
+					rootTable[child.Name] = qualifierTable
+				end
+			end
+		end
 	end
-	
-    -- Expose client interface members:
-    if (service._clientInterface) then
-        for funcName, data in pairs(service._clientInterface) do
-            if (type(data) == "table" and data._isAsync ~= nil and data._func ~= nil) then
-                if (data._isAsync == true) then
-                    service:RegisterClientAsyncFunction(funcName, data._func, data._isVoid)
-                elseif (data._isAsync == false) then
-                    service:RegisterSyncFunction(funcName, data._func)
-                end
-            end
-        end
-    end
-	
-end
-
-
-function StartService(service)
-
-	-- Start services on separate threads:
-	if (type(service.Start) == "function") then
-		FastSpawn(service.Start, service)
-	end
-
+	recur(servicesFolder, AeroServer.Services)
 end
 
 
 function Init()
 	
 	-- Load service modules:
-	for _,module in pairs(servicesFolder:GetChildren()) do
-		if (module:IsA("ModuleScript")) then
-			LoadService(module)
-		end
-	end
+	LoadServices()
 	
 	-- Initialize services:
-	for _,service in pairs(AeroServer.Services) do
-		InitService(service)
-	end
+	Aero.CallAll(loadedServices, false, "Init")
 	
 	-- Start services:
-	for _,service in pairs(AeroServer.Services) do
-		StartService(service)
-	end
+	Aero.CallAll(loadedServices, true, "Start")
 	
 	-- Expose server framework to client and global scope:
 	remoteServices.Parent = game:GetService("ReplicatedStorage").Aero
